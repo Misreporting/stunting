@@ -1,0 +1,1156 @@
+---
+title: "Ecological analysis of water quality and child outcomes"
+author: "Wys"
+date: "`r format(Sys.Date())`"
+output:
+  html_document:
+    theme: readable
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+    code_download: yes
+  word_document:
+    toc: yes
+    toc_depth: '2'
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning = F, messages = F}
+
+library(ggpubr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(readxl)
+library(writexl)
+library(psych)
+library(psy)
+library(lme4)
+
+```
+
+
+## New variables from https://data.worldbank.org/ 
+### 1. People using at least basic drinking water services (% of population): The percentage of people using at least basic water services.  This indicator encompasses both people using basic water services as well as those using safely managed water services.  Basic drinking water services is defined as drinking water from an improved source, provided collection time is not more than 30 minutes for a round trip.  Improved water sources include piped water, boreholes or tubewells, protected dug wells, protected springs, and packaged or delivered water.
+
+### 2. Prevalence of stunting, height for age (modeled estimate, % of children under 5): Prevalence of stunting is the percentage of children under age 5 whose height for age is more than two standard deviations below the median for the international reference population ages 0-59 months. For children up to two years old height is measured by recumbent length. For older children height is measured by stature while standing. The data are based on the WHO's 2006 Child Growth Standards.
+
+### 3. People using safely managed sanitation services (% of population): The percentage of people using improved sanitation facilities that are not shared with other households and where excreta are safely disposed of in situ or transported and treated offsite. Improved sanitation facilities include flush/pour flush to piped sewer systems, septic tanks or pit latrines: ventilated improved pit latrines, compositing toilets or pit latrines with slabs.
+
+### 4. GDP gdp.per.capita: GDP per capita based on purchasing power parity (PPP). PPP GDP is gross domestic product converted to international dollars using purchasing power parity rates. An international dollar has the same purchasing power over GDP as the U.S. dollar has in the United States. GDP at purchaser's prices is the sum of gross value added by all resident producers in the country plus any product taxes and minus any subsidies not included in the value of the products. It is calculated without making deductions for depreciation of fabricated assets or for depletion and degradation of natural resources. Data are in constant 2017 international dollars.
+
+### 5. animal-protein-consumption: https://ourworldindata.org/grapher/animal-protein-consumption?tab=table - Data source: Food and Agriculture Organization of the United Nations, grams of protein per day per capita. --<span style="color:red;"> data mergeing problem, i couldnt find any animal protein data from UN that can provide data up to 2022. > </span>
+
+### 6. UrbanpopulationPCT: Urban population (% of total population). Urban population refers to people living in urban areas as defined by national statistical offices. The data are collected and smoothed by United Nations Population Division.
+
+```{r, eval=F}
+ setwd("C:/Users/wyswy/OneDrive/1.WYS/projects/Stunted15/2024stunt/R_files")
+# setwd("Z:/WYS/8. projects/21. stunt2024")
+# getwd()
+
+
+```
+
+```{r}
+```
+
+## stunt_long
+
+```{r}
+stunt = read_excel("df2024stunt-1.xlsx")
+dim(stunt)
+```
+
+
+stunt <- read_excel("stunting.xlsx")
+
+stunt_long <- stunt %>%
+  gather(key = "year", value = "stunting.rate.yearly", 2:24)
+
+# levels(as.factor(stunt$Country))
+
+
+
+
+
+selected <- c("Afghanistan", "Albania", "Algeria", "Angola", "Argentina", "Armenia", "Australia", "Azerbaijan", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cape Verde", "Cambodia", "Cameroon", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Democratic Republic of Congo", "Congo", "Costa Rica", "Cote d'Ivoire", "Cuba", "Czechia", "Djibouti", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "India", "Indonesia", "Iran", "Iraq", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "North Korea", "South Korea", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya",  "Lithuania", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Moldova", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "Nicaragua", "Niger", "Nigeria", "North Macedonia", "Oman", "Pakistan", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Rwanda", "Samoa", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Sri Lanka", "Saint Lucia", "Sudan", "Suriname", "Syria", "Tajikistan", "Tanzania", "Thailand", "East Timor", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Turks and Caicos Islands", "Tuvalu", "Uganda", "Ukraine", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Venezuela", "Vietnam", "West Bank and Gaza", "Yemen", "Zambia", "Zimbabwe")
+
+
+
+## water_long
+
+
+water <- read_excel("water.xlsx")
+sub_water <- water[water$Country %in% selected,]
+water_long <- sub_water %>%
+  gather(key = "year", value = "basic.drinking.water", 2:24)
+
+
+
+## saniattion_long variable from worldbank - 96 countries
+
+
+
+sanitation <- read_excel("Sanitation.xlsx")
+sub_sanitation <- sanitation[sanitation$Country %in% selected,]
+
+sanitation_long <- sub_sanitation %>%
+  gather(key = "year", value = "managed.sanitation", 2:24)
+
+
+
+## GDP_long
+
+
+GDP <- read_excel("GDP.xlsx")
+sub_GDP <- GDP[GDP$Country %in% selected,]
+
+GDP_long <- sub_GDP %>%
+  gather(key = "year", value = "gdp.per.capita", 2:24)
+
+
+
+## Urban population (% of total population) - long
+
+
+UrbanpopulationPCT <- read_excel("UrbanpopulationPCT.xlsx")
+sub_UrbanpopulationPCT <- UrbanpopulationPCT[UrbanpopulationPCT$Country %in% selected,]
+
+UrbanpopulationPCT_long <- sub_UrbanpopulationPCT %>%
+  gather(key = "year", value = "UrbanpopulationPCT", 2:24)
+
+
+
+
+## Merge dataset
+
+
+# df <- merge(stunt_long, water_long, sanitation_long, GDP_long)
+df <- merge(stunt_long, water_long)
+df <- merge(df, sanitation_long)
+df <- merge(df, GDP_long)
+df <- merge(df, UrbanpopulationPCT_long)
+
+# write_xlsx(df, "combined.dataset1.28.24.xlsx")
+
+
+## merge protei data : Animal protein consumption, 2020 This is measured as the average daily supply per person, grams per day per capita
+
+```{r, eval=F}
+df <- read_excel("combined.dataset1.28.24.xlsx") # 1.28.24 data was assembled before the protein data was merged, it has 2022 water and stunting information. 
+
+# levels(as.factor(df$Country))
+```
+
+
+# stunting data has 159 countries, after aligning the county names, we found that 9 countries don't have protein data matched.
+
+df$Country[df$Country == "Brunei Darussalam"] <- "Brunei"
+df$Country[df$Country == "Cabo Verde"] <- "Cape Verde"
+df$Country[df$Country == "Congo, Dem. Rep."] <- "Democratic Republic of Congo"                  
+df$Country[df$Country == "Congo, Rep."] <- "Congo"
+df$Country[df$Country == "Egypt, Arab Rep."] <- "Egypt"
+
+df$Country[df$Country == "Gambia, The"] <- "Gambia"
+df$Country[df$Country == "Iran, Islamic Rep."] <- "Iran"
+df$Country[df$Country == "Korea, Dem. People's Rep."] <- "North Korea"
+df$Country[df$Country == "Korea, Rep."] <- "South Korea"
+df$Country[df$Country == "Kyrgyz Republic"] <- "Kyrgyzstan"
+
+df$Country[df$Country == "Lao PDR"] <- "Laos"
+df$Country[df$Country == "Syrian Arab Republic"] <- "Syria"
+df$Country[df$Country == "Turkiye"] <- "Turkey"
+df$Country[df$Country == "St. Lucia"] <- "Saint Lucia"
+df$Country[df$Country == "Timor-Leste"] <- "East Timor"
+
+df$Country[df$Country == "Venezuela, RB"] <- "Venezuela"
+df$Country[df$Country == "Viet Nam"] <- "Vietnam"
+df$Country[df$Country == "Yemen, Rep."] <- "Yemen"
+
+
+
+
+## Plot Children stunting rate over time for each country. 159 countries in 3 plots before dat merging
+
+```{r}
+df1 <- df[c(1:1150),]
+plot1.01 <- ggplot(df1, aes(x=as.numeric(year), y = stunting.rate.yearly/100))+
+  geom_line(aes(group=Country)) +
+   theme_bw() +
+ 
+  scale_x_continuous(breaks = c(2000, 2011, 2022)) +
+  scale_y_continuous(labels = scales::percent, breaks = seq(0,0.60,by = 0.15)) +
+ theme(axis.text.x = element_text(color = "black",size =5,angle=45, hjust =0.8,  vjust = 0.8, face = "plain"),
+        axis.text.y = element_text(color = "black",size =6, angle=0, hjust =0.5, vjust = 0, face = "plain")) +
+  
+         facet_wrap(~Country, ncol = 10, labeller = label_wrap_gen(width=15)) +
+  labs(
+       x="\nChildren Stunting Rate 2000 - 2022",
+       y = "") +
+        theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  theme(axis.title.x = element_text(color = "black",size =9, face = "plain"),
+        axis.title.y = element_text(color = "black",size =7, face = "plain")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(strip.text = element_text(size = 7.0)) +
+  theme(strip.text.x = element_text(margin = margin(0,0,0,0, "cm")))
+
+plot1.01
+```
+
+```{r}
+df2 <- df[c(1151:2300),]
+plot1.02 <- ggplot(df2, aes(x=as.numeric(year), y = stunting.rate.yearly/100))+
+  geom_line(aes(group=Country)) +
+   theme_bw() +
+ 
+  scale_x_continuous(breaks = c(2000, 2011, 2022)) +
+  scale_y_continuous(labels = scales::percent, breaks = seq(0,0.60,by = 0.15)) +
+ theme(axis.text.x = element_text(color = "black",size =5,angle=45, hjust =0.8,  vjust = 0.8, face = "plain"),
+        axis.text.y = element_text(color = "black",size =6, angle=0, hjust =0.5, vjust = 0, face = "plain")) +
+  
+         facet_wrap(~Country, ncol = 10, labeller = label_wrap_gen(width=15)) +
+  labs(
+       x="\nChildren Stunting Rate 2000 - 2022",
+       y = "") +
+        theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  theme(axis.title.x = element_text(color = "black",size =9, face = "plain"),
+        axis.title.y = element_text(color = "black",size =7, face = "plain")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(strip.text = element_text(size = 7.0)) +
+  theme(strip.text.x = element_text(margin = margin(0,0,0,0, "cm")))
+
+plot1.02
+```
+
+```{r}
+df3 <- df[c(2301:3657),]
+plot1.03 <- ggplot(df3, aes(x=as.numeric(year), y = stunting.rate.yearly/100))+
+  geom_line(aes(group=Country)) +
+   theme_bw() +
+ 
+  scale_x_continuous(breaks = c(2000, 2011, 2022)) +
+  scale_y_continuous(labels = scales::percent, breaks = seq(0,0.60,by = 0.15)) +
+ theme(axis.text.x = element_text(color = "black",size =5,angle=45, hjust =0.8,  vjust = 0.8, face = "plain"),
+        axis.text.y = element_text(color = "black",size =6, angle=0, hjust =0.5, vjust = 0, face = "plain")) +
+  
+         facet_wrap(~Country, ncol = 10, labeller = label_wrap_gen(width=15)) +
+  labs(
+       x="\nChildren Stunting Rate 2000 - 2022",
+       y = "") +
+        theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  theme(axis.title.x = element_text(color = "black",size =9, face = "plain"),
+        axis.title.y = element_text(color = "black",size =7, face = "plain")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(strip.text = element_text(size = 7.0)) +
+  theme(strip.text.x = element_text(margin = margin(0,0,0,0, "cm")))
+
+plot1.03
+```
+
+## check correlation between basci water service and stunting rate (before any factor analysis)
+
+```{r}
+library(ggrepel)
+
+
+# na.omit to ignore the missing values in data set df: na.omit(df), so the mean can be calculated with existing values. 
+# highkightdf <- subset(group_mean3.1, country %in% c("Nepal", "India", "Bangladesh", "Guatemala"))
+names(df)
+df2022 <- subset(df, year==2022)
+df2022 <- df2022[,c(1:4)]
+df2022 <- na.omit(df2022)
+df2022$stunting.rate.yearly <- df2022$stunting.rate.yearly/100
+df2022$basic.drinking.water <- df2022$basic.drinking.water/100
+# df2022 <- subset(df2022, stunting.rate.yearly>=0.20 & basic.drinking.water<=0.90)
+
+plot1.1 <- ggplot(df2022, aes(x=basic.drinking.water, y = stunting.rate.yearly))+
+  geom_point(size=0.8) +
+  
+  geom_text_repel(label=df2022$Country, size = 2.5, max.overlaps =20) +
+  geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "red", se = T, alpha= 0.3) +
+  stat_cor(method="spearman", cor.coef.name = "rho",label.x = 0.40, label.y = 0.07, label.sep = "\n", size = 3.2)+
+  labs(#title = "\nFigure 1a: Association between improved water/sanitation \nand percent of children under 5 years old with stunting",
+       y = "Children Stunting Rate",
+       x="Improved Water Access 2022") +
+   # theme(plot.title = element_text(size=12)) +
+   scale_x_continuous(labels = scales::percent) +
+   scale_y_continuous(labels = scales::percent) +
+  
+   theme(plot.title = element_text(hjust = 0.5, size = 12))+
+   theme(axis.line.y = element_line(linewidth = 0.5, colour = "black"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "black"),
+        axis.title.x = element_text(color="gray10", size=9, face="plain"),
+        axis.title.y = element_text(color="gray10", size=9, face="plain")) +
+  theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  
+  theme(axis.text.x = element_text(color = "black",size =9,angle=0, hjust =0.5, vjust = 1, face = "plain"),
+        axis.text.y = element_text(color = "black",size =9,angle=0, hjust =1, vjust = 0.5, face = "plain"))
+
+plot1.1
+```
+
+## water factor 2022 - before protein variables merged which only has data up to 2020. 
+```{r}
+
+c.df <- na.omit(df)
+names(c.df)
+Water.F <- with(c.df, cbind(basic.drinking.water, UrbanpopulationPCT, managed.sanitation))
+factanal(Water.F, factors=1)
+
+```
+
+```{r}
+psych::alpha(Water.F, check.keys=TRUE)
+```
+
+```{r}
+c.df$Factor.water <- rowMeans(c.df[,c("basic.drinking.water",   "UrbanpopulationPCT",   "managed.sanitation")])
+```
+
+## Correlation between water factor 2022 and stunting
+
+```{r}
+
+names(c.df)
+c.df2022 <- subset(c.df, year==2022)
+# c.df2022 <- c.df2022[,c(1:4)]
+# df2022 <- na.omit(df2022)
+c.df2022$stunting.rate.yearly <- c.df2022$stunting.rate.yearly/100
+c.df2022$Factor.water <- c.df2022$Factor.water/100
+# df2022 <- subset(df2022, stunting.rate.yearly>=0.20 & basic.drinking.water<=0.90)
+
+plot1.2 <- ggplot(c.df2022, aes(x=Factor.water, y = stunting.rate.yearly))+
+  geom_point(size=0.8) +
+  
+  geom_text_repel(label=c.df2022$Country, size = 3.0, max.overlaps =Inf) +
+  geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "red", se = T, alpha= 0.3) +
+  stat_cor(method="spearman", cor.coef.name = "rho",label.x = 0.20, label.y = 0.05, label.sep = "\n", size = 3.2)+
+  labs(#title = "\nFigure 1a: Association between improved water/sanitation \nand percent of children under 5 years old with stunting",
+       y = "Children Stunting Rate",
+       x="Improved Water Access, Sanitation and Urban Population Factor 2022") +
+   # theme(plot.title = element_text(size=12)) +
+   scale_x_continuous(labels = scales::percent) +
+   scale_y_continuous(labels = scales::percent) +
+  
+   theme(plot.title = element_text(hjust = 0.5, size = 12))+
+   theme(axis.line.y = element_line(linewidth = 0.5, colour = "black"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "black"),
+        axis.title.x = element_text(color="gray10", size=9, face="plain"),
+        axis.title.y = element_text(color="gray10", size=9, face="plain")) +
+  theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  
+  theme(axis.text.x = element_text(color = "black",size =9,angle=0, hjust =0.5, vjust = 1, face = "plain"),
+        axis.text.y = element_text(color = "black",size =9,angle=0, hjust =1, vjust = 0.5, face = "plain"))
+
+plot1.2
+
+```
+
+```{r}
+levels(as.factor(c.df$Country))
+ggsave(filename="2022corplot.png", plot=plot1.2, device="png",height=5, width=7, units="in", dpi=1000)
+```
+
+
+# Merging UN protein data, which has data up to 2020.
+
+
+df_protein <- read_excel("protein.xlsx")
+
+# levels(as.factor(df_protein$Country))
+
+
+
+## 150 countries have protein data after merging
+
+names(df_protein)
+
+# Poultry
+
+undf_poultry <- subset(df_protein,select = c("Country", "Year", "Poultry"))
+wide_poultry <- spread(undf_poultry, Year, Poultry)
+# write_xlsx(wide_poultry, "wide.poultry22.xlsx")
+# wide_poultry <- read_excel("wide.poultry22.xlsx")
+sub_poultry <- wide_poultry[,c(1,41:61)]
+df_poultry <- sub_poultry[sub_poultry$Country %in% selected,]
+long_poultry <- df_poultry %>% gather(key = "year", value = "UN.poultry", 2:22)
+
+df <- merge(df,long_poultry)
+names(df)
+
+# Pork
+
+undf_Pork <- subset(df_protein,select = c("Country", "Year", "Pork"))
+wide_Pork <- spread(undf_Pork, Year, Pork)
+sub_Pork <- wide_Pork[,c(1,41:61)]
+df_Pork <- sub_Pork[sub_Pork$Country %in% selected,]
+long_Pork <- df_Pork %>% gather(key = "year", value = "UN.Pork", 2:22)
+
+df <- merge(df,long_Pork)
+names(df)
+
+# Beef
+
+undf_Beef <- subset(df_protein,select = c("Country", "Year", "Beef"))
+wide_Beef <- spread(undf_Beef, Year, Beef)
+sub_Beef <- wide_Beef[,c(1,41:61)]
+df_Beef <- sub_Beef[sub_Beef$Country %in% selected,]
+long_Beef <- df_Beef %>% gather(key = "year", value = "UN.Beef", 2:22)
+
+df <- merge(df,long_Beef)
+names(df)
+
+# Sheepandgoat
+
+undf_Sheepandgoat <- subset(df_protein,select = c("Country", "Year", "Sheepandgoat"))
+wide_Sheepandgoat <- spread(undf_Sheepandgoat, Year, Sheepandgoat)
+sub_Sheepandgoat <- wide_Sheepandgoat[,c(1,41:61)]
+df_Sheepandgoat <- sub_Sheepandgoat[sub_Sheepandgoat$Country %in% selected,]
+long_Sheepandgoat <- df_Sheepandgoat %>% gather(key = "year", value = "UN.Sheepandgoat", 2:22)
+
+df <- merge(df,long_Sheepandgoat)
+names(df)
+
+# Other
+
+undf_Other <- subset(df_protein,select = c("Country", "Year", "Other"))
+wide_Other <- spread(undf_Other, Year, Other)
+sub_Other <- wide_Other[,c(1,41:61)]
+df_Other <- sub_Other[sub_Other$Country %in% selected,]
+long_Other <- df_Other %>% gather(key = "year", value = "UN.Other", 2:22)
+
+df <- merge(df,long_Other)
+names(df)
+
+
+
+# Egg.products
+
+undf_Egg.products <- subset(df_protein,select = c("Country", "Year", "Egg.products"))
+wide_Egg.products <- spread(undf_Egg.products, Year, Egg.products)
+sub_Egg.products <- wide_Egg.products[,c(1,41:61)]
+df_Egg.products <- sub_Egg.products[sub_Egg.products$Country %in% selected,]
+long_Egg.products <- df_Egg.products %>% gather(key = "year", value = "UN.Egg.products", 2:22)
+
+df <- merge(df,long_Egg.products)
+names(df)
+
+
+# Milk.Excluding.Butter
+
+undf_Milk.Excluding.Butter <- subset(df_protein,select = c("Country", "Year", "Milk.Excluding.Butter"))
+wide_Milk.Excluding.Butter <- spread(undf_Milk.Excluding.Butter, Year, Milk.Excluding.Butter)
+sub_Milk.Excluding.Butter <- wide_Milk.Excluding.Butter[,c(1,41:61)]
+df_Milk.Excluding.Butter <- sub_Milk.Excluding.Butter[sub_Milk.Excluding.Butter$Country %in% selected,]
+long_Milk.Excluding.Butter <- df_Milk.Excluding.Butter %>% gather(key = "year", value = "UN.Milk.Excluding.Butter", 2:22)
+
+df <- merge(df,long_Milk.Excluding.Butter)
+names(df)
+
+# Fishandseafood
+
+undf_Fishandseafood <- subset(df_protein,select = c("Country", "Year", "Fishandseafood"))
+wide_Fishandseafood <- spread(undf_Fishandseafood, Year, Fishandseafood)
+sub_Fishandseafood <- wide_Fishandseafood[,c(1,41:61)]
+df_Fishandseafood <- sub_Fishandseafood[sub_Fishandseafood$Country %in% selected,]
+long_Fishandseafood <- df_Fishandseafood %>% gather(key = "year", value = "UN.Fishandseafood", 2:22)
+
+df <- merge(df,long_Fishandseafood)
+names(df)
+
+
+write_xlsx(df, "df2024.xlsx")
+
+
+
+## dataset merged and named as df2024stunt
+
+```{r}
+df <- read_excel("df2024stunt.xlsx")
+names(df)
+```
+## water factor - after merged with protein variables
+
+
+## water factor 2020 - before protein variables merged which only has data up to 2020. 
+```{r}
+c.df <- na.omit(df)
+levels(as.factor(c.df$Country))
+names(c.df)
+Water.F <- with(c.df, cbind(basic.drinking.water, UrbanpopulationPCT, managed.sanitation))
+factanal(Water.F, factors=1)
+
+```
+
+```{r}
+psych::alpha(Water.F, check.keys=TRUE)
+```
+
+```{r}
+c.df$Factor.water <- rowMeans(c.df[,c("basic.drinking.water",   "UrbanpopulationPCT",   "managed.sanitation")])
+```
+
+## Correlation between water factor 2020 and stunting
+
+```{r}
+
+names(c.df)
+c.df2020 <- subset(c.df, year==2020)
+# c.df2022 <- c.df2022[,c(1:4)]
+# df2022 <- na.omit(df2022)
+c.df2020$stunting.rate.yearly <- c.df2020$stunting.rate.yearly/100
+c.df2020$Factor.water <- c.df2020$Factor.water/100
+# df2022 <- subset(df2022, stunting.rate.yearly>=0.20 & basic.drinking.water<=0.90)
+
+plot.water.factor <- ggplot(c.df2020, aes(x=Factor.water, y = stunting.rate.yearly))+
+  geom_point(size=1.5, pch = 16) +
+  
+  geom_text_repel(label=c.df2020$Country, size = 3.0, max.overlaps =Inf) +
+  geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "red", se = T, alpha= 0.3) +
+  stat_cor(method="spearman", cor.coef.name = "rho",label.x = 0.20, label.y = 0.05, label.sep = "\n", size = 3.2)+
+  labs(#title = "\nFigure 1a: Association between improved water/sanitation \nand percent of children under 5 years old with stunting",
+       y = "Children Stunting Rate",
+       x="Improved Water Access, Sanitation and Urban Population Factor 2020") +
+   # theme(plot.title = element_text(size=12)) +
+   scale_x_continuous(labels = scales::percent) +
+   scale_y_continuous(labels = scales::percent) +
+  
+   theme(plot.title = element_text(hjust = 0.5, size = 12))+
+   theme(axis.line.y = element_line(linewidth = 0.5, colour = "black"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "black"),
+        axis.title.x = element_text(color="gray10", size=9, face="plain"),
+        axis.title.y = element_text(color="gray10", size=9, face="plain")) +
+  theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  
+  theme(axis.text.x = element_text(color = "black",size =9,angle=0, hjust =0.5, vjust = 1, face = "plain"),
+        axis.text.y = element_text(color = "black",size =9,angle=0, hjust =1, vjust = 0.5, face = "plain"))
+
+plot.water.factor
+
+```
+
+```{r}
+ggsave(filename="2020corplot.png", plot=plot.water.factor, device="png",height=5, width=7, units="in", dpi=1000)
+```
+
+
+## protein  -  added up as total protein
+
+
+```{r}
+names(c.df)
+```
+### un.other, beef, sheepand goat and fishandseafood are not loading well when put all in the analysis (-UN.Other, UN.Sheepandgoat, UN.Beef,  UN.Fishandseafood) -  
+### UN.poultry, UN.Pork, UN.Egg.products, UN.Milk.Excluding.Butter, UN.Beef - beef is not loading well, should we keep it in????
+### UN.Fishandseafood is on oppsite direction - use as a individual variable
+### UN.Sheepandgoat is not loading - very high in uniqueness
+
+
+
+```{r}
+c.df$total.protein <- rowSums(c.df[,c("UN.Beef", "UN.poultry", "UN.Pork","UN.Sheepandgoat", "UN.Egg.products","UN.Other", "UN.Milk.Excluding.Butter","UN.Fishandseafood")])
+
+```
+
+
+```{r}
+names(c.df)
+c.df2020 <- subset(c.df, year==2020)
+# c.df2022 <- c.df2022[,c(1:4)]
+# df2022 <- na.omit(df2022)
+c.df2020$stunting.rate.yearly <- c.df2020$stunting.rate.yearly/100
+
+plot.protein.factor <- ggplot(c.df2020, aes(x=total.protein, y = stunting.rate.yearly))+
+  geom_point(size=1.5, pch = 16) +
+  
+  geom_text_repel(label=c.df2020$Country, size = 3.0, max.overlaps =Inf) +
+  geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "red", se = T, alpha= 0.3) +
+  stat_cor(method="spearman", cor.coef.name = "rho",label.x = 60, label.y = 0.40, label.sep = "\n", size = 3.2)+
+  labs(#title = "\nFigure 1a: Association between improved water/sanitation \nand percent of children under 5 years old with stunting",
+       y = "Children Stunting Rate",
+       x="Daily Total Protein Consumption per Capita in Grams 2020") +
+   # theme(plot.title = element_text(size=12)) +
+   # scale_x_continuous(labels = scales::percent) +
+   scale_y_continuous(labels = scales::percent) +
+  
+   theme(plot.title = element_text(hjust = 0.5, size = 12))+
+   theme(axis.line.y = element_line(linewidth = 0.5, colour = "black"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "black"),
+        axis.title.x = element_text(color="gray10", size=9, face="plain"),
+        axis.title.y = element_text(color="gray10", size=9, face="plain")) +
+  theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  
+  theme(axis.text.x = element_text(color = "black",size =9,angle=0, hjust =0.5, vjust = 1, face = "plain"),
+        axis.text.y = element_text(color = "black",size =9,angle=0, hjust =1, vjust = 0.5, face = "plain"))
+
+plot.protein.factor
+```
+
+```{r}
+ggsave(filename="2020corplotprotein.png", plot=plot.protein.factor, device="png",height=5, width=7, units="in", dpi=1000)
+```
+
+
+## Correlation matrix
+
+### The log-0 problem: analysis strategies and options for choosing c in log(y + c): https://aosmith.rbind.io/2018/09/19/the-log-0-problem/#:~:text=Since%20log(0)%20returns%20%2D,rid%20of%20the%200%20values.
+
+
+
+
+
+
+```{r, warning=F, message=F}
+library(GGally)
+
+```
+
+
+```{r, warning=F, message=F}
+matrix.df1<-  subset(c.df,year==2020)
+
+
+# matrix.df1$sqrt.stunting <- sqrt(matrix.df1$stunting.rate.yearly)
+# matrix.df1$log.GDP <- log(matrix.df1$gdp.per.capita)
+# matrix.df1$sqrt.total.protein <- sqrt(matrix.df1$total.protein)
+# names(matrix.df1)
+
+matrix.df <- matrix.df1[,c(3,16,17,6)]
+
+
+
+```
+
+
+
+```{r, warning=F, message=F}
+# Defines function to color according to correlation
+cor_func <- function(data, mapping, method, symbol, ...){
+  x <- eval_data_col(data, mapping$x)
+  y <- eval_data_col(data, mapping$y)
+
+  corr <- cor(x, y, method=method, use='complete.obs')
+
+  colFn <- colorRampPalette(c("brown1", "white", "dodgerblue"), 
+                interpolate ='spline')
+  fill <- colFn(100)[findInterval(corr, seq(-1, 1, length = 100))]
+
+  ggally_text(
+    label = paste(symbol, as.character(round(corr, 2))), 
+    mapping = aes(),
+    xP = 0.5, yP = 0.5,
+    color = 'blue', size = 3.5,
+    ...) + 
+    theme_void() +
+    theme(panel.background = element_rect(fill = fill))
+}
+
+
+
+lowerFn <- function(data, mapping, ...) {
+  p <- ggplot(data = data, mapping = mapping) +
+    geom_point(color = 'blue', alpha=1, size=0.6) +
+    geom_smooth(color = 'orangered', method='lm', size=0.6,se = F, ...) +
+    theme_bw() +
+      theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) 
+  p
+}
+
+
+cor.matrix <- ggpairs(matrix.df,
+      columnLabels =c("Stunting", "Water Factor", "Protein", "GDP"),
+       # aes(alpha = 0.1),
+      # upper=list(continuous = wrap("cor", method ="spearman", size = 3.2, colour = "blue")),
+      upper = list(continuous = wrap(cor_func,
+                  method = 'spearman', symbol = expression('\u03C1 ='))),
+       
+        diag = list(continuous=wrap("densityDiag",colour="orangered")),
+        lower = list(continuous = wrap(lowerFn))) +
+  
+  # ggtitle(" ") +
+   theme(panel.grid.minor = element_blank()) +
+   theme(plot.title = element_text(hjust = 0.5)) +
+   theme(axis.text.x = element_text(color = "black",size =9,angle=90, hjust =0.5, vjust = 1, face = "plain"),
+          axis.text.y = element_text(color = "black",size =9,angle=0, hjust =1, vjust = 0.5, face = "plain"),
+         axis.title.x = element_text(color="black", size=10, face="plain")) +
+   theme(strip.text.x = element_text(size = 8),
+         strip.text.y = element_text(size = 6.0))
+   
+cor.matrix
+```
+
+```{r}
+ggsave(filename="2020matrix.sqrt.png", plot=cor.matrix, device="png",height=5, width=7, units="in", dpi=1000)
+```
+
+
+## Normalization is useful for when a distribution is unknown or not normal (not bell curve), while standardization is useful for normal distributions.https://builtin.com/data-science/when-and-why-standardize-your-data
+
+# Z score variables  - unable to get sheep and goat z scores, sheep and goat comsumption was very little compare to other meats. 
+
+
+### checking the variable distributions - all right skewed except the water factor and year
+
+
+```{r}
+
+names(c.df)
+plot(density(na.omit(c.df$stunting.rate.yearly)))
+plot(density(na.omit(c.df$Factor.water)))
+plot(density(na.omit(c.df$total.protein)))
+plot(density(na.omit(c.df$gdp.per.capita)))
+plot(density(na.omit(as.numeric(c.df$year))))
+
+```
+## taking log on GDP and sqrt on the other two on the right skewed variables would make them a bit more symetrical 
+
+```{r}
+# plot(density(na.omit(sqrt(c.df$stunting.rate.yearly))))
+
+# plot(density(na.omit(sqrt(c.df$total.protein))))
+# plot(density(na.omit(log(c.df$gdp.per.capita))))
+
+
+```
+
+
+```{r}
+
+
+c.df$z.water <- (c.df$Factor.water - mean(c.df$Factor.water))/sd(c.df$Factor.water)
+c.df$z.protein <- (c.df$total.protein - mean(c.df$total.protein))/sd(c.df$total.protein)
+c.df$z.stunting <- (c.df$stunting.rate.yearly - mean(c.df$stunting.rate.yearly))/sd(c.df$stunting.rate.yearly)
+c.df$z.GDP <- (c.df$gdp.per.capita - mean(c.df$gdp.per.capita))/sd(c.df$gdp.per.capita)
+c.df$z.year <- (as.numeric(c.df$year) - mean(as.numeric(c.df$year)))/sd(as.numeric(c.df$year))
+
+names(c.df)
+```
+
+# regression with water factor only
+
+
+oo <- options(repos = "https://cran.r-project.org/")
+install.packages("Matrix")
+install.packages("lme4")
+options(oo)
+
+
+
+```{r}
+# 
+# tools::package_dependencies("Matrix", which = "LinkingTo", reverse = TRUE)[[1L]]
+# install.packages("lme4", type = "source")
+# names(c.df)
+
+library(lme4)
+model1<- lmer(z.stunting ~ z.water + (1|Country), data=c.df, REML=FALSE)
+summary(model1)
+```
+```{r}
+confint(model1, method="boot")
+```
+
+
+# model with protein only
+
+```{r}
+names(c.df)
+mod_protein <- lmer(z.stunting ~ z.protein + (1|Country), data=c.df, REML=FALSE)
+summary(mod_protein)
+```
+
+```{r}
+confint(mod_protein, method="boot")
+```
+
+# model1 with water factor and protein
+
+```{r}
+model2 <- lmer(z.stunting ~ z.water  + z.protein +  (1|Country), data=c.df, REML=FALSE)
+summary(model2)
+```
+```{r}
+# dotplot(ranef(model1))
+library(ggplot2)
+
+# ggCaterpillar(ranef(model1, condVar=TRUE))
+
+```
+
+
+```{r}
+plot(model2)
+```
+
+
+```{r}
+confint(model2, method="boot")
+```
+
+```{r}
+names(c.df)
+model3 <- lmer(z.stunting ~ z.water  + z.protein  + z.year +  (1|Country), data=c.df, REML=FALSE)
+summary(model3)
+```
+```{r}
+confint(model3, method="boot")
+```
+
+```{r}
+library(car)
+vif_values <- vif(model3)
+vif_values
+
+```
+
+
+
+
+```{r}
+
+library(stargazer)
+# coef.water <- confint(mod_water, method="boot")
+coef.protein <- confint(mod_protein, method="boot")
+coef.vector1 <- confint(model1, method="boot")
+coef.vector2 <- confint(model2, method="boot")
+coef.vector3 <- confint(model3, method="boot")
+
+```
+
+
+```{r}
+stargazer( model1, model2, model3,
+          ci.custom = list(coef.vector1,coef.vector2, coef.vector3),
+           type = "html", ci.level = 0.95, ci = T,
+           # apply.coef = exp, apply.se = exp,
+           font.size ="small", no.space = T, column.sep.width = "1pt" , single.row = F,
+           title = "model results", model.names= T, t.auto=F, p.auto=F, keep.stat ="n", digits = 2,
+           dep.var.labels = c("Stunting Rate"),
+           column.labels   = c("Model 1","Model 2", "Model 3"),
+           covariate.labels = c( "Water", "Animal Protein", "Year"),
+        
+
+          notes.append = FALSE, notes = c("<sup>&sstarf;</sup>p<0.1; <sup>&sstarf;&sstarf;</sup>p<0.05; <sup>&sstarf;&sstarf;&sstarf;</sup>p<0.01"), out= "stunt1.htm")
+```
+
+# fitted value against observed - overall
+
+```{r}
+
+c.df$Predicted <- predict(model3)
+
+names(c.df)
+
+```
+
+```{r}
+ggplot(c.df) + 
+  geom_point(aes(x = Predicted, y =z.stunting ))
+```
+
+```{r}
+levels(as.factor(c.df$Country))
+```
+
+
+
+```{r}
+plotmodel3.1 <- ggplot(c.df[c(1:977),], group = Country)+
+  geom_line(aes(x=as.numeric(year), y = z.stunting))+ 
+  geom_line(aes(x=as.numeric(year), y = Predicted), colour = "red")+
+  
+  scale_x_continuous(breaks = c(2000, 2010, 2020)) +
+    facet_wrap(~Country, ncol = 10, labeller = label_wrap_gen(width=15)) +
+   theme_bw() +
+  # scale_y_continuous(labels = scales::percent, breaks = seq(0,0.60,by = 0.15)) +
+ theme(axis.text.x = element_text(color = "black",size =5,angle=45, hjust =0.8,  vjust = 0.8, face = "plain"),
+        axis.text.y = element_text(color = "black",size =6, angle=0, hjust =0.5, vjust = 0, face = "plain")) +
+
+
+  labs(y = "",
+       x="\nStandardized Children Stunting Rate (Z-scores) 2000 - 2020") +
+  theme(axis.title.x = element_text(color = "black",size =8.5, face = "plain"),
+        axis.title.y = element_text(color = "black",size =7, face = "plain")) +
+  
+        theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+
+  theme(strip.text = element_text(size = 6.5)) +
+  theme(strip.text.x = element_text(margin = margin(0,0,0,0, "cm")))
+
+plotmodel3.1
+```
+
+```{r}
+ggsave(filename="fittedVSobs1.png", plot=plotmodel3.1, device="png",height=5, width=7, units="in", dpi=1000)
+```
+
+```{r}
+
+plotmodel3.2 <- ggplot(c.df[c(978:1836),], group = Country)+
+  geom_line(aes(x=as.numeric(year), y = z.stunting))+ 
+  geom_line(aes(x=as.numeric(year), y = Predicted), colour = "red")+
+  
+  scale_x_continuous(breaks = c(2000, 2010, 2020)) +
+    facet_wrap(~Country, ncol = 10, labeller = label_wrap_gen(width=15)) +
+   theme_bw() +
+  # scale_y_continuous(labels = scales::percent, breaks = seq(0,0.60,by = 0.15)) +
+ theme(axis.text.x = element_text(color = "black",size =5,angle=45, hjust =0.8,  vjust = 0.8, face = "plain"),
+        axis.text.y = element_text(color = "black",size =6, angle=0, hjust =0.5, vjust = 0, face = "plain")) +
+
+
+  labs(y = "",
+       x="\nStandardized Children Stunting Rate (Z-scores) 2000 - 2020") +
+  theme(axis.title.x = element_text(color = "black",size =8.5, face = "plain"),
+        axis.title.y = element_text(color = "black",size =7, face = "plain")) +
+  
+        theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+
+  theme(strip.text = element_text(size = 6.5)) +
+  theme(strip.text.x = element_text(margin = margin(0,0,0,0, "cm")))
+
+plotmodel3.2
+
+```
+
+```{r}
+ggsave(filename="fittedVSobs2.png", plot=plotmodel3.2, device="png",height=5, width=7, units="in", dpi=1000)
+```
+
+
+```{r}
+levels(as.factor(c.df$Country))
+```
+# forest plot for estimates and 95% CI
+
+```{r}
+library(dotwhisker)
+library(broom)
+library(dplyr)
+library(coefplot)
+
+```
+
+```{r}
+modelci1 <- coefplot:::buildModelCI(model1)
+modelci2 <- coefplot:::buildModelCI(model2)
+modelci3 <- coefplot:::buildModelCI(model3)
+plot.df <- rbind(modelci1,modelci2,modelci3)
+plot.df <- plot.df[c(-2,-5,-9),]
+levels(as.factor(plot.df$Coefficient))
+
+plot.df$Mod[plot.df$Model =="model1"] <-"Model 1"
+plot.df$Mod[plot.df$Model =="model2"] <-"Model 2"
+plot.df$Mod[plot.df$Model =="model3"] <-"Model 3"
+
+plot.df$coef[plot.df$Coefficient =="z.year"] <-"Year"
+# plot.df$coef[plot.df$Coefficient =="z.GDP"] <-"GDP Per Capita"
+plot.df$coef[plot.df$Coefficient =="z.water"] <-"Water Factor"
+plot.df$coef[plot.df$Coefficient =="z.protein"] <-"Animal Protein"
+
+```
+
+```{r}
+plot.df$coef <- factor(plot.df$coef, levels = c("Year", "Animal Protein", "Water Factor"))
+```
+
+```{r}
+pp <- ggplot(plot.df,aes(y=coef, x=Value, colour = Mod)) +
+  
+  geom_errorbar(aes(xmin=LowOuter, xmax=HighOuter), size = 0.6,width=0.04, alpha = 1) +
+  geom_point(size=0.5)+
+  
+    # coord_fixed(ratio=.3) +
+ 
+    geom_vline(xintercept=0, linetype='dotdash', size = 0.25, colour = "red", alpha = 0.95) +
+    facet_grid(~Mod) +
+    xlab("") + ylab ("") + 
+  #  ggtitle(" ") +
+    # scale_color_manual(values=c('orangered3', 'green', 'blue'))+
+    # scale_color_discrete("Dark2") +
+  scale_color_brewer(palette="Set1", direction=-1) +
+    theme_bw() +
+      theme(
+        plot.title = element_text(face = "bold"),
+        legend.position = "none",
+        legend.justification = c(0, 0),
+        legend.background = element_rect(colour = "white"),
+        legend.title = element_blank()
+    ) +
+    theme(strip.text = element_text(size = 8, color = "black"),
+           panel.grid.minor = element_blank(),
+           panel.grid.major = element_line(colour = "grey95", linewidth = 0.2)) +
+  theme(axis.title.x = element_text(color = "black",size =1, face = "plain"),
+        axis.title.y = element_text(color = "black",size =1, face = "plain")) +
+  
+    theme(axis.line.y = element_line(linewidth = 0.0, colour = "grey10"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "grey10")) +
+  
+    theme(axis.text.x = element_text(color = "black",size =6.5,angle=0, hjust =0.5, vjust = 0.5, face = "plain"),
+        axis.text.y = element_text(color = "black",size =7,angle=0, hjust =1, vjust = 0, face = "plain")) +
+   scale_x_continuous(expand =  expand_scale(mult = 0.25))
+pp 
+```
+```{r}
+ggsave(filename="forestplot.png", plot=pp, device="png",height=3, width=4.5, units="in", dpi=1000)
+```
+
+
+# get tables content for table 1 - use only 2020 data
+
+```{r}
+library(vtable)
+
+names(c.df2020)
+
+xx <- c.df2020[,c("stunting.rate.yearly","basic.drinking.water","managed.sanitation","UrbanpopulationPCT",  "Factor.water","total.protein", "gdp.per.capita")]
+
+```
+
+```{r}
+st(xx, out="browser", add.median=T)
+```
+
+
+
+# getting the correlation coefficients for each year. 
+
+
+```{r}
+library(tidyverse)
+library(correlation)
+names(c.df)
+```
+
+
+```{r}
+# View(gapminder)
+cor.df <- c.df %>% 
+  group_by(year) %>% 
+  select(stunting.rate.yearly,
+         Factor.water, total.protein, gdp.per.capita) %>% 
+  correlation(method = "spearman")
+
+# cor.df
+cor.df <- as.data.frame(cor.df)
+names(cor.df)
+```
+
+
+```{r}
+cor.df$pairs[cor.df$Parameter1 == "stunting.rate.yearly" & cor.df$Parameter2 == "Factor.water"] <- "Stunting V. Water"
+cor.df$pairs[cor.df$Parameter1 == "stunting.rate.yearly" & cor.df$Parameter2 == "total.protein"] <- "Stunting V. Protein"
+cor.df$pairs[cor.df$Parameter1 == "stunting.rate.yearly" & cor.df$Parameter2 == "gdp.per.capita"] <- "Stunting V. GDP"
+cor.df$pairs[cor.df$Parameter1 == "Factor.water" & cor.df$Parameter2 == "total.protein"] <- "Water V. Protein"
+cor.df$pairs[cor.df$Parameter1 == "Factor.water" & cor.df$Parameter2 == "gdp.per.capita"] <- "Water V. GDP"
+cor.df$pairs[cor.df$Parameter1 == "total.protein" & cor.df$Parameter2 == "gdp.per.capita"] <- "Protein V. GDP"
+
+
+cor.df$pairs <- factor(cor.df$pairs, levels = c("Stunting V. Water", "Stunting V. Protein", "Stunting V. GDP", "Water V. Protein", "Water V. GDP", "Protein V. GDP"))
+cor.df$rho <- round(cor.df$rho, digits = 2)
+```
+
+## free_x or free_y in facet scales did the tricks 
+
+```{r}
+plot.cor <- ggplot(cor.df, aes(x= Group, y = rho, colour = pairs)) +
+  
+  geom_point(size=0.4) + 
+  geom_errorbar(aes(ymin = CI_low, ymax = CI_high), width=0.0, size=0.5, alpha = 0.9) +
+  
+ #  geom_point(data=df.sub.ci, aes(x = Quarters, y = SIR, ymin = low, ymax = high),size=2, color = "red") + 
+ # geom_errorbar(data=df.sub.ci, aes(x = Quarters, y = SIR, ymin = low, ymax = high), width=0.2, size=1, color = "red") +
+  
+  geom_hline(yintercept = 0, size = 0.3, linetype = "dotdash", colour = "red", alpha = 0.5) +
+  geom_text(label=cor.df$rho, size = 2.5, max.overlaps =Inf, hjust = -0.6, parse=TRUE,  fontface = "bold") +
+  
+  # geom_rect(data = subset(df95ci, facility %in% c("System Wide SIR")), fill = NA, colour = "orangered", size = 2.5, xmin = -Inf,xmax = Inf, ymin = -Inf,ymax = Inf) + 
+  
+   # geom_rect(data = subset(df95ci, facility %in% "Kings"), fill = NA, colour = "red", size = 0.5, xmin = -Inf,xmax = Inf, ymin = -Inf,ymax = Inf) + 
+  
+  #  facet_wrap(~group, ncol = 6, labeller = label_wrap_gen(width = 22, multi_line = TRUE)) +
+   facet_wrap(~ pairs,scales="free_x", ncol = 6) +
+  
+  labs( y="\nPairwise Spearman's Rank Correlation Coefficients 2000 to 2020", x = " ") + ggtitle(" ") + 
+ #  scale_y_continuous(limits = c(-1, 1), breaks = seq(-1, 1, by = 0.5)) +
+    scale_color_brewer(palette="Dark2", direction=1) +
+    theme_bw() +
+      theme(
+        plot.title = element_text(face = "bold"),
+        legend.position = "none",
+        legend.justification = c(0, 0),
+        legend.background = element_rect(colour = "white"),
+        legend.title = element_blank()
+    ) +
+  
+    theme(strip.text = element_text(size = 6, color = "black"),
+           panel.grid.minor = element_blank(),
+           panel.grid.major = element_line(colour = "grey95", linewidth = 0.2)
+          ) +
+  theme(axis.title.x = element_text(color = "black",size =8, face = "plain"),
+        axis.title.y = element_text(color = "black",size =1, face = "plain")) +
+  
+    theme(axis.line.y = element_line(linewidth = 0.0, colour = "grey10"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "grey10")) +
+  
+    theme(axis.text.x = element_text(color = "black",size =6,angle=0, hjust =0.5, vjust = 0.5, face = "plain"),
+        axis.text.y = element_text(color = "black",size =6,angle=0, hjust =0.5, vjust = 0.5, face = "plain"))
+  
+  
+plotci <- plot.cor + coord_flip() +  
+  scale_y_continuous(expand =  expand_scale(mult = .5)) +
+  scale_x_discrete(expand =  expand_scale(mult = .05))
+
+plotci
+
+```
+```{r}
+ggsave(filename="cor. forestplot.png", plot=plotci, device="png",height=5, width=8, units="in", dpi=2000)
+```
+
+
+
+
+
+
+
+
+
+
+
