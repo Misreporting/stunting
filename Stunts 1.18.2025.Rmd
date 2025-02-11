@@ -1,0 +1,754 @@
+---
+title: "Ecological analysis of water quality and child outcomes"
+author: "Wys"
+date: "`r format(Sys.Date())`"
+output:
+  html_document:
+    theme: readable
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+    code_download: yes
+  word_document:
+    toc: yes
+    toc_depth: '2'
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning = F, messages = F}
+
+library(ggpubr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(readxl)
+library(writexl)
+library(psych)
+library(psy)
+library(lme4)
+```
+
+
+## New variables from https://data.worldbank.org/ 
+### 1. People using at least basic drinking water services (% of population): The percentage of people using at least basic water services.  This indicator encompasses both people using basic water services as well as those using safely managed water services.  Basic drinking water services is defined as drinking water from an improved source, provided collection time is not more than 30 minutes for a round trip.  Improved water sources include piped water, boreholes or tubewells, protected dug wells, protected springs, and packaged or delivered water.
+
+### 2. Prevalence of stunting, height for age (modeled estimate, % of children under 5): Prevalence of stunting is the percentage of children under age 5 whose height for age is more than two standard deviations below the median for the international reference population ages 0-59 months. For children up to two years old height is measured by recumbent length. For older children height is measured by stature while standing. The data are based on the WHO's 2006 Child Growth Standards.
+
+### 3. People using safely managed sanitation services (% of population): The percentage of people using improved sanitation facilities that are not shared with other households and where excreta are safely disposed of in situ or transported and treated offsite. Improved sanitation facilities include flush/pour flush to piped sewer systems, septic tanks or pit latrines: ventilated improved pit latrines, compositing toilets or pit latrines with slabs.
+
+### 4. GDP gdp.per.capita: GDP per capita based on purchasing power parity (PPP). PPP GDP is gross domestic product converted to international dollars using purchasing power parity rates. An international dollar has the same purchasing power over GDP as the U.S. dollar has in the United States. GDP at purchaser's prices is the sum of gross value added by all resident producers in the country plus any product taxes and minus any subsidies not included in the value of the products. It is calculated without making deductions for depreciation of fabricated assets or for depletion and degradation of natural resources. Data are in constant 2017 international dollars.
+
+### 5. animal-protein-consumption: https://ourworldindata.org/grapher/animal-protein-consumption?tab=table - Data source: Food and Agriculture Organization of the United Nations, grams of protein per day per capita. --<span style="color:red;"> data mergeing problem, i couldnt find any animal protein data from UN that can provide data up to 2022. > </span>
+
+### 6. UrbanpopulationPCT: Urban population (% of total population). Urban population refers to people living in urban areas as defined by national statistical offices. The data are collected and smoothed by United Nations Population Division.
+
+```{r, eval=F}
+setwd("C:/Users/wyswy/OneDrive/1.WYS/projects/Stunted15/2025 revision")
+```
+
+
+## dataset merged and named as df2024stunt
+
+```{r}
+# df <- read_excel("df2024stunt.xlsx")
+df <- read_excel("~/OneDrive - Downstate Medical Center/projects/Wallach ped GI/Gapminder/df2025.2.7YWfinal.xlsx")
+names(df)
+```
+## water factor - after merged with protein variables
+
+
+## water factor 2020 - before protein variables merged which only has data up to 2020. 
+```{r}
+
+
+Water.F <- with(df, cbind(basic.drinking.water, UrbanpopulationPCT, managed.sanitation))
+factanal(na.omit(Water.F), factors=1)
+
+```
+
+```{r}
+psych::alpha(na.omit(Water.F), check.keys=TRUE)
+```
+
+```{r}
+df$Factor.water <- rowMeans(df[,c("basic.drinking.water",   "UrbanpopulationPCT",   "managed.sanitation")])
+summary(df$Factor.water)
+```
+```{r}
+summary(df$Total.protein)
+```
+
+
+```{r}
+names(df)
+```
+```{r}
+mycolor <- c("#1b9e77", "#d95f02", "#7570b3", "#e7298a","#66a61e","#e6ab02" )
+mycolor1 <- c("#4daf4a","#e41a1c",  "#377eb8","#984ea3","#a65628","#e7298a", "#ff7f00" )
+  
+  
+  c("springgreen2","red2", "maroon2", "#d62728", "#2ca02C", "#02401B", "#1f77b4", "#9467bd",
+              "#e377c2",  "#17becf", "#98df8a", "#ff9896",  "#02401B")
+
+```
+
+```{r}
+df$population_c <- round(df$population/1000000, 2)
+summary(df$population_c)
+```
+## improved water access and stunting rate
+
+```{r}
+c.df2020 <- na.omit(subset(df, year==2020))
+
+c.df2020$stunting.rate.yearly <- c.df2020$stunting.rate.yearly/100
+c.df2020$basic.drinking.water<- c.df2020$basic.drinking.water/100
+
+
+im.w_down <- subset(c.df2020, Code=="DEU"|Code=="CAF"|Code =="BGR"|Code=="MAR"|Code=="MWI"|Code=="PHL")
+
+im.w_up <- subset(c.df2020, Code!="CHN"&Code!="NLD"& Code!="DEU"&Code!="BGR"&Code!="BRA"&Code!="KGZ"& Code!="KOR"&
+                     Code!="LBN"&Code!="PRY"&Code!="SRB"&Code!="KIR"&Code!="BEN"&Code!="SLE"&Code!="CAF"&Code!="POL"&Code!="BLR"&Code!="JPN"&Code!="AUS"&Code!="LTU"&Code!="QAT"&Code!="CHL"&Code!="TUR"&Code!="MAR"&Code!="FJI"&Code!="DOM"&Code!="LAO"&Code!="MWI"&Code!="ZWE"&Code!="UGA"&Code!="MDG"&Code!="GEO"&Code!="GRC"&Code!="MLI"&Code!="GHA"&Code!="ZAF"&Code!="VNM"&Code!="MYS"&Code!="THA"&Code!="DZA"&Code!="PHL"&Code!="IRQ"&Code!="UZB"&Code!="ROU"&Code!="BGD"&Code!="SUR"&Code!="MNE"&Code!="USA"&Code!="BHR"&Code!="MKD"&Code!="PRT"&Code!="LVA"&Code!="BEL")
+
+im.w_left <- subset(c.df2020, Code=="CHN"|Code=="KGZ"|Code=="KIR"|Code=="BEN"|Code=="BLR"|Code=="DOM"|Code=="MDG"|Code=="FJI"|Code=="GEO"|Code=="SRB"|Code=="ZAF"|Code=="VNM"|Code=="MYS"|Code=="DZA"|Code=="LBN"|Code=="UZB"|Code=="SUR"|Code=="MNE"|Code=="LTU"|Code=="MKD"|Code=="PRT"|Code=="LVA"|Code=="BEL"|Code=="CHL")
+
+im.w_right <- subset(c.df2020, Code=="SLE"|Code=="JPN"|Code=="AUS"|Code=="POL"|Code=="NLD"|Code=="KOR"|Code=="TUR"|Code=="LAO"|Code=="ZWE"|Code=="UGA"|Code=="GRC"|Code=="GHA"|Code=="THA"|Code=="IRQ"|Code=="ROU"|Code=="BRA"|Code=="BGD"|Code=="USA"|Code=="QAT"|Code=="BHR"|Code=="PRY"|Code=="MLI")
+```
+
+
+
+```{r}
+im.water <- ggplot(c.df2020, aes(x=basic.drinking.water, y = stunting.rate.yearly))+
+ 
+  geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "lightblue", se = T, alpha= 0.15, linewidth = 0.5) +
+  # geom_point(aes(size = population_c, color = Income_group), alpha = 0, pch = 16) +
+
+  
+  # stat_cor(method="spearman", cor.coef.name = "rho",label.x = 0.20, label.y = 0.45, label.sep = "\n", size = 3.0)+
+  labs(#title = "\nFigure 1a: Association between improved water/sanitation \nand percent of children under 5 years old with stunting",
+       y = "Children Stunting Percentage",
+       x="Improved Water Access Percentage 2020") +
+   # theme(plot.title = element_text(size=12)) +
+   scale_x_continuous(limits = c(0.2, 1.1), breaks = seq(0, 1.1, by = 0.2),labels = scales::percent) +
+   scale_y_continuous(limits = c(0, 0.5), breaks = seq(0, 0.5, by = 0.1),labels = scales::percent) +
+  
+    
+   geom_text(data=im.w_up, aes(x=basic.drinking.water, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                    key_glyph = "point", alpha = 0.8, vjust = -0.8) +
+  #geom_text(df_dwon,aes(x=Total.protein, y = stunting.rate.yearly,label=Code), max.overlaps =Inf, show.legend = F, vjust = 0.7,alpha = 0.8) +
+  geom_text(data=im.w_down, aes(x=basic.drinking.water, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, vjust = 1.8) +
+  geom_text(data=im.w_left, aes(x=basic.drinking.water, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, hjust = 1.33) +
+  geom_text(data=im.w_right, aes(x=basic.drinking.water, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, hjust = -0.3) + 
+  
+   theme(plot.title = element_text(hjust = 0.5, size = 12))+
+   theme(axis.line.y = element_line(linewidth = 0.5, colour = "black"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "black"),
+        axis.title.x = element_text(color="gray10", size=9, face="plain"),
+        axis.title.y = element_text(color="gray10", size=9, face="plain")) +
+  theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  
+  theme(axis.text.x = element_text(color = "black",size =9,angle=0, hjust =0.5, vjust = 1, face = "plain"),
+        axis.text.y = element_text(color = "black",size =9,angle=0, hjust =1, vjust = 0.5, face = "plain")) +
+  scale_color_manual(values = mycolor1) +  theme(legend.position = c(0.2,0.18)) +scale_size(range = c(2, 15)) +
+    theme(legend.background = element_rect(color = "transparent", fill = "transparent"),
+        legend.key = element_rect(colour = "transparent", fill = "transparent"),
+        legend.direction = "vertical", legend.box = "horizontal",
+        legend.key.size=unit(.55,"lines"),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = rel(.4))) +
+  guides(size=guide_legend(title = "Population \n(Millions)", override.aes = list(geom = "point", shape = 1)),
+         color=guide_legend(ncol=1,byrow=TRUE, title="Income Group", override.aes = list(geom = "point", shape = 18, size = 5)))
+
+  
+  im.water
+```
+
+```{r}
+ggsave(filename="2025im.water.jpg", plot=im.water, device="jpg",height=7, width=9, units="in", dpi=300, scaling = 1.2)
+```
+
+
+
+## Manged Sanitation and stunting rate
+
+```{r}
+
+c.df2020 <- na.omit(subset(df, year==2020))
+
+c.df2020$stunting.rate.yearly <- c.df2020$stunting.rate.yearly/100
+c.df2020$managed.sanitation<- c.df2020$managed.sanitation/100
+
+
+sani_down <- subset(c.df2020, Code=="CHN"|Code=="DEU"|Code =="LVA"|Code=="BRA"|Code=="LBN"|Code=="SRB"|Code=="CAF"|Code =="BGR"|Code=="LTU"|
+                    Code=="QAT"|Code=="MAR"|Code=="MWI")
+sani_up <- subset(c.df2020, Code!="CHN"&Code!="NLD"& Code!="DEU"& Code!="LVA"&Code!="BGR"&Code!="BRA"&Code!="PER"&Code!="KGZ"& Code!="KOR"&
+                     Code!="LBN"&Code!="PRY"&Code!="SRB"&Code!="KIR"&Code!="NPL"&Code!="NGA"&Code!="BEN"&Code!="SLE"&Code!="CAF"&Code!="POL"&Code!="BLR"&Code!="EST"&Code!="JPN"&Code!="AUS"&Code!="LTU"&Code!="QAT"&Code!="CHL"&Code!="TUR"&Code!="MAR"&Code!="FJI"&Code!="DOM"&Code!="LAO"&Code!="MWI"&Code!="ZWE"&Code!="UGA"&Code!="MDG")
+
+sani_left <- subset(c.df2020, Code=="KGZ"|Code=="PRY"|Code=="KIR"|Code=="NPL"|Code=="NGA"|Code=="BEN"|Code=="BLR"|Code=="EST"|Code =="CHL"|Code=="DOM"|Code=="MDG"|Code=="FJI")
+
+sani_right <- subset(c.df2020, Code=="PER"|Code=="SLE"|Code=="JPN"|Code=="AUS"|Code=="POL"|Code=="NLD"|Code=="KOR"|Code=="TUR"|Code=="LAO"|Code=="ZWE"|Code=="UGA")
+
+```
+
+
+
+```{r}
+im.sani <- ggplot(c.df2020, aes(x=managed.sanitation, y = stunting.rate.yearly))+
+ 
+  # geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "#ffc2c2", se = T, alpha= 0.25, linewidth = 0.8) +
+  # geom_point(aes(size = population_c, color = Region), alpha = 0.5, pch = 16) +
+ geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "lightblue", se = T, alpha= 0.15, linewidth = 0.5) +
+  
+  # stat_cor(method="spearman", cor.coef.name = "rho",label.x = 0, label.y = 0.04, label.sep = "\n", size = 3.0)+
+  labs(#title = "\nFigure 1a: Association between improved water/sanitation \nand percent of children under 5 years old with stunting",
+       y = "Children Stunting Percentage",
+       x="Managed Sanitation Percentage 2020") +
+   # theme(plot.title = element_text(size=12)) +
+   scale_x_continuous(limits = c(0, 1.03), breaks = seq(0, 1.03, by = 0.2),labels = scales::percent) +
+   scale_y_continuous(limits = c(-0.02, 0.5), breaks = seq(0, 0.5, by = 0.1),labels = scales::percent) +
+  
+   geom_text(data=sani_up, aes(x=managed.sanitation, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                  key_glyph = "point", alpha = 0.8, vjust = -0.8) +
+  #geom_text(df_dwon,aes(x=Total.protein, y = stunting.rate.yearly,label=Code), max.overlaps =Inf, show.legend = F, vjust = 0.7,alpha = 0.8) +
+  geom_text(data=sani_down, aes(x=managed.sanitation, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, vjust = 1.8) +
+  geom_text(data=sani_left, aes(x=managed.sanitation, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, hjust = 1.33) +
+  geom_text(data=sani_right, aes(x=managed.sanitation, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, hjust = -0.3) + 
+  
+   theme(plot.title = element_text(hjust = 0.5, size = 12))+
+   theme(axis.line.y = element_line(linewidth = 0.5, colour = "black"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "black"),
+        axis.title.x = element_text(color="gray10", size=9, face="plain"),
+        axis.title.y = element_text(color="gray10", size=9, face="plain")) +
+  theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  
+  theme(axis.text.x = element_text(color = "black",size =9,angle=0, hjust =0.5, vjust = 1, face = "plain"),
+        axis.text.y = element_text(color = "black",size =9,angle=0, hjust =1, vjust = 0.5, face = "plain")) +
+  scale_color_manual(values = mycolor1) +  theme(legend.position = c(0.85,0.88)) +scale_size(range = c(2, 15)) +
+    theme(legend.background = element_rect(color = "transparent", fill = "transparent"),
+        legend.key = element_rect(colour = "transparent", fill = "transparent"),
+        legend.direction = "vertical", legend.box = "horizontal",
+        legend.key.size=unit(.55,"lines"),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = rel(.4))) +
+  guides(size=guide_legend(title = "Population \n(Millions)", override.aes = list(geom = "point", shape = 1)),
+         color=guide_legend(ncol=1,byrow=TRUE, title="Income Group", override.aes = list(geom = "point", shape = 18, size = 5)))
+  
+  im.sani
+```
+
+
+
+```{r}
+ggsave(filename="2025im.sani.jpg", plot=im.sani, device="jpg",height=7, width=9, units="in", dpi=300, scaling = 1.2)
+```
+
+
+
+
+## Urban population 2020 and stunting 2020- 94 countries
+
+
+```{r}
+c.df2020 <- na.omit(subset(df, year==2020))
+summary(c.df2020$UrbanpopulationPCT)
+
+c.df2020$stunting.rate.yearly <- c.df2020$stunting.rate.yearly/100
+c.df2020$UrbanpopulationPCT <- c.df2020$UrbanpopulationPCT/100
+
+urban_down <- subset(c.df2020, Code=="CHN"|Code == "NLD"|Code=="CHL"|Code=="DEU"|Code=="LBN"|Code=="SRB"|Code=="CAF"|Code =="BGR"|Code=="LAO"|Code=="KHM"|Code=="BGD"|Code=="TZA")
+urban_up <- subset(c.df2020, Code!="CHN"&Code!="NLD"&Code!="CHL"& Code!="DEU"&Code!="BGR"&Code!="UZB"&Code!="KGZ"&
+                     Code!="LBN"&Code!="MEX"&Code!="SRB"&Code!="KIR"&Code!="NPL"&Code!="NGA"&Code!="BEN"&Code!="SLE"&Code!="CAF"&Code!="BLR"&Code!="BEL"&Code!="LAO"&Code!="PHL"&Code!="KHM"&Code!="JPN"&Code!="COL"&Code!="KOR"&Code!="BGD"&Code!="TZA"&Code!="GEO"&Code!="ZWE")
+urban_left <- subset(c.df2020, Code=="KGZ"|Code=="KIR"|Code=="NPL"|Code=="NGA"|Code=="BEN"|Code=="BLR"|Code=="GEO")
+urban_right <- subset(c.df2020, Code=="UZB"|Code=="SLE"|Code=="MEX"|Code=="BEL"|Code=="PHL"|Code=="JPN"|Code=="COL"|Code=="KOR"|Code=="ZWE")
+
+# c.df2022 <- c.df2022[,c(1:4)]
+# df2022 <- na.omit(df2022)
+
+```
+
+
+```{r}
+# df2022 <- subset(df2022, stunting.rate.yearly>=0.20 & basic.drinking.water<=0.90)
+
+Urban_v.s_stunting <- ggplot(c.df2020, aes(x=UrbanpopulationPCT, y = stunting.rate.yearly))+
+ 
+  # geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "#ffc2c2", se = T, alpha= 0.25, linewidth = 0.8) +
+  geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "lightblue", se = T, alpha= 0.15, linewidth = 0.5) +
+  #geom_point(aes(size = population_c, color = Region), alpha = 0.5, pch = 16) +
+  
+  geom_text(data=urban_up, aes(x=UrbanpopulationPCT, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   key_glyph = "point", alpha = 0.8, vjust = -0.8) +
+  #geom_text(df_dwon,aes(x=Total.protein, y = stunting.rate.yearly,label=Code), max.overlaps =Inf, show.legend = F, vjust = 0.7,alpha = 0.8) +
+  geom_text(data=urban_down, aes(x=UrbanpopulationPCT, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, vjust = 1.8) +
+  geom_text(data=urban_left, aes(x=UrbanpopulationPCT, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, hjust = 1.3) +
+  geom_text(data=urban_right, aes(x=UrbanpopulationPCT, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, hjust = -0.2) +
+  
+  #stat_cor(method="spearman", cor.coef.name = "rho",label.x = 0.20, label.y = 0.05, label.sep = "\n", size = 3.0)+
+  labs(#title = "\nFigure 1a: Association between improved water/sanitation \nand percent of children under 5 years old with stunting",
+       y = "Children Stunting Percentage",
+       x="Urban Population Percentage 2020") +
+   # theme(plot.title = element_text(size=12)) +
+   scale_x_continuous(limits = c(0.2, 1.005), breaks = seq(0, 1.005, by = 0.2),labels = scales::percent) +
+   scale_y_continuous(limits = c(-0.05, 0.5), breaks = seq(0, 0.5, by = 0.1),labels = scales::percent) +
+  
+   theme(plot.title = element_text(hjust = 0.5, size = 12))+
+   theme(axis.line.y = element_line(linewidth = 0.5, colour = "black"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "black"),
+        axis.title.x = element_text(color="gray10", size=9, face="plain"),
+        axis.title.y = element_text(color="gray10", size=9, face="plain")) +
+  theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  
+  theme(axis.text.x = element_text(color = "black",size =9,angle=0, hjust =0.5, vjust = 1, face = "plain"),
+        axis.text.y = element_text(color = "black",size =9,angle=0, hjust =1, vjust = 0.5, face = "plain")) +
+  scale_color_manual(values = mycolor1) +  theme(legend.position = c(0.86,0.8)) +scale_size(range = c(2, 15)) +
+    theme(legend.background = element_rect(color = "transparent", fill = "transparent"),
+        legend.key = element_rect(colour = "transparent", fill = "transparent"),
+        legend.direction = "vertical", legend.box = "horizontal",
+        legend.key.size=unit(.55,"lines"),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = rel(.4))) +
+ guides(size=guide_legend(title = "Population \n(Millions)", override.aes = list(geom = "point", shape = 1)),
+         color=guide_legend(ncol=1,byrow=TRUE, title="Income Group", override.aes = list(geom = "point", shape = 18, size = 5)))
+
+Urban_v.s_stunting
+```
+
+
+```{r}
+ggsave(filename="2025urban_stunting.jpg", plot=Urban_v.s_stunting, device="jpg",height=7, width=9, units="in", dpi=300, scaling = 1.2)
+```
+
+
+## protein  -  added up as total protein
+
+
+### un.other, beef, sheepand goat and fishandseafood are not loading well when put all in the analysis (-UN.Other, UN.Sheepandgoat, UN.Beef,  UN.Fishandseafood) -  
+### UN.poultry, UN.Pork, UN.Egg.products, UN.Milk.Excluding.Butter, UN.Beef - beef is not loading well, should we keep it in????
+### UN.Fishandseafood is on oppsite direction - use as a individual variable
+### UN.Sheepandgoat is not loading - very high in uniqueness
+
+
+
+ ### scale the data point for every set of the dataset in use........
+
+```{r, warning = F}
+
+c.df2020 <- na.omit(subset(df, year==2020))
+c.df2020$stunting.rate.yearly <- c.df2020$stunting.rate.yearly/100
+df_dwon <- subset(c.df2020, Code=="EST"|Code == "GRC"|Code == "LVA"|Code == "KOR"|Code=="QAT"|Code=="CHN"|Code == "ROU"|Code=="PRT"|
+                            Code == "UGA"|Code=="BEN"|Code == "NGA"|Code == "WSM"|Code == "FJI"|Code=="SLE")
+
+df_up <- subset(c.df2020, Code!="EST"&Code != "GRC"&Code != "LVA"&Code != "KOR"&Code!="QAT"&Code!="CHN"&Code != "ROU"&Code!="FJI"&Code!="LBN"&
+                            Code!="ARM"&Code != "BGD"&Code != "UGA"&Code!="BEN"&Code!="LSO"&Code != "NGA"&Code != "WSM"&Code!="JPN"&Code!="CZE"
+                           &Code!="GHA"&Code!="KEN"&Code!="SLE"&Code!="PRT"&Code!="PER"&Code!="SRB"&Code!="ARM"&Code!="BGR"&Code!="MEX"&Code!="VNM"
+                           &Code!="NPL"&Code!="MWI")
+
+left <- subset(c.df2020, Code == "JPN"|Code=="CZE"|Code=="LBN"|Code=="GHA"|Code=="BGR"|Code=="VNM"|Code=="NPL"|Code=="MWI")
+right <- subset(c.df2020, Code == "BGD"|Code=="KEN"|Code=="PER"|Code=="SRB"|Code=="ARM"|Code=="MEX"|Code=="LSO")
+# c.df2022 <- c.df2022[,c(1:4)]
+# df2022 <- na.omit(df2022)
+
+
+protein <- ggplot(c.df2020, mapping=aes(x=c.df2020$Total.protein, y = c.df2020$stunting.rate.yearly))+
+  # geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "#ffc2c2", se = T, alpha= 0.25, linewidth = 0.8) +
+  geom_smooth(formula = y ~ x, method = lm, linetype = "solid",colour = "lightblue", se = T, alpha= 0.15, linewidth = 0.5) +
+ # geom_point(aes(size =c.df2020$population_c, color =c.df2020$Region), pch = 16, alpha = 0.5) +
+  
+ geom_text(data=df_up, aes(x=Total.protein, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   key_glyph = "point", alpha = 0.8, vjust = -0.8) +
+  #geom_text(df_dwon,aes(x=Total.protein, y = stunting.rate.yearly,label=Code), max.overlaps =Inf, show.legend = F, vjust = 0.7,alpha = 0.8) +
+  geom_text(data=df_dwon, aes(x=Total.protein, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, vjust = 1.5) +
+  geom_text(data=left, aes(x=Total.protein, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, hjust = 1.3) +
+  geom_text(data=right, aes(x=Total.protein, y = stunting.rate.yearly,size =population_c, color =Income_group, label=paste(Code)), max.overlaps =Inf, 
+                   show.legend = F, alpha = 0.8, hjust = -0.2) +
+  
+  
+  # stat_cor(method="spearman", cor.coef.name = "rho",label.x = 5, label.y = 0.02, label.sep = "\n", size = 3.0)+
+  labs(#title = "\nFigure 1a: Association between improved water/sanitation \nand percent of children under 5 years old with stunting",
+       y = "Children Stunting Percentage",
+       x="Total Animal Protein Supply 2020 (grams/day per person)") +
+   # theme(plot.title = element_text(size=12)) +
+   # scale_x_continuous(labels = scales::percent) +
+   scale_y_continuous(limits=c(-0.1, 0.5),breaks = c(0,.1, .2, .3, .4, .5) ,labels = scales::percent) +
+ # coord_cartesian(ylim = c(-0.0, 0.5)) +
+  
+   theme(plot.title = element_text(hjust = 0.5, size = 12))+
+   theme(axis.line.y = element_line(linewidth = 0.5, colour = "black"),
+        axis.line.x = element_line(linewidth = 0.5, colour = "black"),
+        axis.title.x = element_text(color="gray10", size=9, face="plain"),
+        axis.title.y = element_text(color="gray10", size=9, face="plain")) +
+  theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) +
+  
+  theme(axis.text.x = element_text(color = "black",size =9,angle=0, hjust =0.5, vjust = 1, face = "plain"),
+        axis.text.y = element_text(color = "black",size =9,angle=0, hjust =1, vjust = 0.5, face = "plain")) +
+  scale_color_manual(values=mycolor1, name =NULL)+
+  theme(legend.position = c(0.86,0.88)) +scale_size(range = c(2, 15)) +
+  theme(legend.background = element_rect(color = "transparent", fill = "transparent"),
+        legend.key = element_rect(colour = "transparent", fill = "transparent"),
+        legend.direction = "vertical", legend.box = "horizontal",
+        legend.key.size=unit(.55,"lines"),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = rel(.4))) +
+ guides(size=guide_legend(title = "Population \n(Millions)", override.aes = list(geom = "point", shape = 1)),
+         color=guide_legend(ncol=1,byrow=TRUE, title="Income Group", override.aes = list(geom = "point", shape = 18, size = 5)))
+
+protein
+```
+
+```{r}
+ggsave(filename="2025protein.jpg", plot=protein, device="jpg",height=7, width=9, units="in", dpi=300, scaling = 1.2)
+```
+
+
+
+## Correlation matrix
+
+### The log-0 problem: analysis strategies and options for choosing c in log(y + c): https://aosmith.rbind.io/2018/09/19/the-log-0-problem/#:~:text=Since%20log(0)%20returns%20%2D,rid%20of%20the%200%20values.
+
+
+
+
+
+
+```{r, warning=F, message=F}
+library(GGally)
+
+```
+
+
+```{r, warning=F, message=F}
+matrix.df1<-  subset(na.omit(df),year==2020)
+names(matrix.df1)
+
+
+# matrix.df1$sqrt.stunting <- sqrt(matrix.df1$stunting.rate.yearly)
+# matrix.df1$log.GDP <- log(matrix.df1$gdp.per.capita)
+# matrix.df1$sqrt.total.protein <- sqrt(matrix.df1$total.protein)
+# names(matrix.df1)
+
+matrix.df <- matrix.df1[,c(3, 9 ,4, 5, 7)]
+
+
+
+```
+
+
+
+```{r, warning=F, message=F}
+# Defines function to color according to correlation
+cor_func <- function(data, mapping, method, symbol, ...){
+  x <- eval_data_col(data, mapping$x)
+  y <- eval_data_col(data, mapping$y)
+
+  corr <- cor(x, y, method=method, use='complete.obs')
+
+  colFn <- colorRampPalette(c("brown1", "white", "dodgerblue"), 
+                interpolate ='spline')
+  fill <- colFn(100)[findInterval(corr, seq(-1, 1, length = 100))]
+
+  ggally_text(
+    label = paste(symbol, as.character(round(corr, 2))), 
+    mapping = aes(),
+    xP = 0.5, yP = 0.5,
+    color = 'blue', size = 3.5,
+    ...) + 
+    theme_void() +
+    theme(panel.background = element_rect(fill = fill))
+}
+
+
+
+lowerFn <- function(data, mapping, ...) {
+  p <- ggplot(data = data, mapping = mapping) +
+    geom_point(color = 'blue', alpha=1, size=0.6) +
+    geom_smooth(color = 'orangered', method='lm', size=0.6,se = F, ...) +
+    theme_bw() +
+      theme(panel.grid.major = element_line(colour = "gray95"),
+        panel.grid.minor = element_line(colour = "white", linetype = "dotdash"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  theme(plot.background = element_rect(fill = "white")) 
+  p
+}
+
+
+cor.matrix <- ggpairs(matrix.df,
+      columnLabels =c("Stunting Rate (%)", "Daily Total Protein \nIntake (grams)", "Improved Water \nAccess (%)", "Managed \nSanitation (%)","Urban \nPopulation (%)"),
+       # aes(alpha = 0.1),
+      # upper=list(continuous = wrap("cor", method ="spearman", size = 3.2, colour = "blue")),
+      upper = list(continuous = wrap(cor_func,
+                  method = 'spearman', symbol = expression('\u03C1 ='))),
+       
+        diag = list(continuous=wrap("densityDiag",colour="orangered")),
+        lower = list(continuous = wrap(lowerFn))) +
+  
+  # ggtitle(" ") +
+   theme(panel.grid.minor = element_blank()) +
+   theme(plot.title = element_text(hjust = 0.5)) +
+   theme(axis.text.x = element_text(color = "black",size =8,angle=90, hjust =0.5, vjust = 1, face = "plain"),
+          axis.text.y = element_text(color = "black",size =8,angle=0, hjust =1, vjust = 0.5, face = "plain"),
+         axis.title.x = element_text(color="black", size=10, face="plain")) +
+   theme(strip.text.x = element_text(size = 8),
+         strip.text.y = element_text(size = 7.0))
+   
+cor.matrix
+```
+
+```{r}
+ggsave(filename="2020matrix.sqrt.png", plot=cor.matrix, device="png",height=7, width=9, units="in", dpi=1000, scaling = 1.1)
+```
+
+
+## Normalization is useful for when a distribution is unknown or not normal (not bell curve), while standardization is useful for normal distributions.https://builtin.com/data-science/when-and-why-standardize-your-data
+
+# Z score variables  - unable to get sheep and goat z scores, sheep and goat comsumption was very little compare to other meats. 
+
+
+### checking the variable distributions - all right skewed except the water factor and year
+
+
+```{r}
+c.df <- na.omit(df)
+names(c.df)
+plot(density(na.omit(c.df$stunting.rate.yearly)))
+plot(density(na.omit(c.df$Factor.water)))
+plot(density(na.omit(c.df$Total.protein)))
+plot(density(na.omit(c.df$gdp.per.capita)))
+plot(density(na.omit(as.numeric(c.df$year))))
+
+```
+## taking log on GDP and sqrt on the other two on the right skewed variables would make them a bit more symetrical 
+
+```{r}
+# plot(density(na.omit(sqrt(c.df$stunting.rate.yearly))))
+
+# plot(density(na.omit(sqrt(c.df$total.protein))))
+# plot(density(na.omit(log(c.df$gdp.per.capita))))
+
+
+```
+
+
+```{r}
+names(c.df)
+
+c.df$z.water <- (c.df$Factor.water - mean(c.df$Factor.water))/sd(c.df$Factor.water) # not using factor this time
+
+c.df$z.im.water <- (c.df$basic.drinking.water - mean(c.df$basic.drinking.water))/sd(c.df$basic.drinking.water)
+c.df$z.im.sani <- (c.df$managed.sanitation - mean(c.df$managed.sanitation))/sd(c.df$managed.sanitation)
+c.df$z.urbanPCT <- (c.df$UrbanpopulationPCT - mean(c.df$UrbanpopulationPCT))/sd(c.df$UrbanpopulationPCT)
+
+c.df$z.protein <- (c.df$Total.protein - mean(c.df$Total.protein))/sd(c.df$Total.protein)
+
+c.df$z.stunting <- (c.df$stunting.rate.yearly - mean(c.df$stunting.rate.yearly))/sd(c.df$stunting.rate.yearly)
+c.df$z.GDP <- (c.df$gdp.per.capita - mean(c.df$gdp.per.capita))/sd(c.df$gdp.per.capita)
+c.df$z.year <- (as.numeric(c.df$year) - mean(as.numeric(c.df$year)))/sd(as.numeric(c.df$year))
+
+names(c.df)
+```
+
+
+
+
+oo <- options(repos = "https://cran.r-project.org/")
+install.packages("Matrix")
+install.packages("lme4")
+options(oo)
+
+# protein only
+
+```{r}
+# 
+# tools::package_dependencies("Matrix", which = "LinkingTo", reverse = TRUE)[[1L]]
+# install.packages("lme4", type = "source")
+# names(c.df)
+
+library(lme4)
+model1<- lmer(stunting.rate.yearly ~ z.protein + (1|Country), data=c.df, REML=FALSE)
+summary(model1)
+```
+```{r}
+confint(model1, method="boot")
+```
+# protein and envioronment elements
+
+```{r}
+names(c.df)
+model2 <- lmer(stunting.rate.yearly ~  z.protein +z.im.water  + z.im.sani + z.urbanPCT  +(1|Country), data=c.df, REML=FALSE)
+summary(model2)
+```
+```{r}
+confint(model2, method="boot")
+```
+
+```{r}
+library(car)
+vif_values <- vif(model2)
+vif_values
+
+```
+```{r}
+names(c.df)
+model3 <- lmer(stunting.rate.yearly ~  z.protein +z.im.water  + z.im.sani + z.urbanPCT + z.year +(1|Country), data=c.df, REML=FALSE)
+summary(model3)
+```
+
+```{r}
+confint(model3, method="boot")
+```
+
+
+
+
+```{r}
+
+library(stargazer)
+# coef.water <- confint(mod_water, method="boot")
+# coef.protein <- confint(mod_protein, method="boot")
+coef.vector1 <- confint(model1, method="boot")
+coef.vector2 <- confint(model2, method="boot")
+coef.vector3 <- confint(model3, method="boot")
+
+```
+
+
+```{r}
+stargazer( model1, model2, model3,
+          ci.custom = list(coef.vector1,coef.vector2, coef.vector3),
+           type = "html", ci.level = 0.95, ci = T,
+           # apply.coef = exp, apply.se = exp,
+           font.size ="small", no.space = T, column.sep.width = "1pt" , single.row = F,
+           title = "model results", model.names= T, t.auto=F, p.auto=F, keep.stat ="n", digits = 2,
+           dep.var.labels = c("Stunting Rate"),
+           column.labels   = c("Model 1","Model 2", "Model 3"),
+           covariate.labels = c( "Total Protein", "Improved Water Access", "Managed Sanitation", "Urban population", "Year"),
+        
+
+          notes.append = FALSE, notes = c("<sup>&sstarf;</sup>p<0.1; <sup>&sstarf;&sstarf;</sup>p<0.05; <sup>&sstarf;&sstarf;&sstarf;</sup>p<0.01"), out= "stunt2.htm")
+```
+
+# obs vs predicted
+
+```{r}
+c.df$Predicted3 <- predict(model3)
+c.df$Predicted3 <- round(c.df$Predicted3, 2)
+# p.df <- c.df[, c("year","Country","stunt.percentile", "stunting.rate.yearly", "z.stunting", "Predicted3pp")]
+names(c.df)
+```
+
+
+
+# # plot obs vs predicted
+
+```{r}
+
+Figure1 <- ggplot(c.df, aes(x = year, y = stunting.rate.yearly/100)) + 
+  geom_line(aes(group = Code)) +
+  # geom_line(aes(x = year, y = Predicted3/100, group = Code), color = "red") +
+  facet_wrap(~Code, ncol = 9, labeller = label_wrap_gen(width=21)) +
+ 
+  scale_x_discrete(breaks =c(2000, 2005, 2010, 2015, 2020)) +
+  labs(x = NULL, y = NULL) +
+   scale_y_continuous(limits = c(-0.05, .60), breaks = c(0, .20, .40, .60), labels = scales::percent) +
+  
+  theme_bw() +
+  # theme(legend.position = c(0.9, 0.15)) +
+   guides(fill = guide_legend(override.aes = list(size = 8))) +
+   theme(panel.grid.major = element_line(colour = "grey97"),
+        panel.grid.minor = element_line(colour = "grey97", size = 0.5, linetype = "dotdash"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  
+  theme(plot.background = element_rect(fill = "white")) +
+  theme(axis.title.x = element_text(color = "black",size =7, face = "plain"),
+        axis.title.y = element_text(color = "black",size =12, face = "plain")) +
+  
+  theme(plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12)) +
+  
+  theme(strip.text = element_text(size = 7.0)) +  
+  
+  theme(strip.text.x = element_text(margin = margin(0.05,0.05,0.05,0.05, "cm"))) + # this line edit the size of the facet strip by edit the margin around the strip text. 
+   theme(axis.text.x = element_text(color = "black",size =8,angle=90, hjust =0.5, vjust = 0.5, face = "plain"),
+         axis.text.y = element_text(color = "black",size =8,angle=0, hjust =0.5, vjust = 0.5, face = "plain"))
+
+Figure1
+  
+```
+
+```{r}
+ggsave(filename="Figure1.png", plot=Figure1, device="png",height=10, width=9, units="in", dpi=1000, scaling = 1)
+```
+
+
+
+```{r}
+
+Figure5 <- ggplot(c.df, aes(x = year, y = stunting.rate.yearly/100)) + 
+  geom_line(aes(group = Code)) +
+  geom_line(aes(x = year, y = Predicted3/100, group = Code), color = "red") +
+  facet_wrap(~Code, ncol = 9, labeller = label_wrap_gen(width=21)) +
+ 
+  scale_x_discrete(breaks =c(2000, 2005, 2010, 2015, 2020)) +
+  labs(x = NULL, y = NULL) +
+   scale_y_continuous(limits = c(-0.05, .60), breaks = c(0, .20, .40, .60), labels = scales::percent) +
+  
+  theme_bw() +
+  # theme(legend.position = c(0.9, 0.15)) +
+   guides(fill = guide_legend(override.aes = list(size = 8))) +
+   theme(panel.grid.major = element_line(colour = "grey97"),
+        panel.grid.minor = element_line(colour = "grey97", size = 0.5, linetype = "dotdash"),
+        panel.background = element_rect(fill = "white",colour = "white")) +
+  
+  theme(plot.background = element_rect(fill = "white")) +
+  theme(axis.title.x = element_text(color = "black",size =7, face = "plain"),
+        axis.title.y = element_text(color = "black",size =12, face = "plain")) +
+  
+  theme(plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12)) +
+  
+  theme(strip.text = element_text(size = 7.0)) +  
+  
+  theme(strip.text.x = element_text(margin = margin(0.05,0.05,0.05,0.05, "cm"))) + # this line edit the size of the facet strip by edit the margin around the strip text. 
+   theme(axis.text.x = element_text(color = "black",size =8,angle=90, hjust =0.5, vjust = 0.5, face = "plain"),
+         axis.text.y = element_text(color = "black",size =8,angle=0, hjust =0.5, vjust = 0.5, face = "plain"))
+
+Figure5
+  
+```
+
+```{r}
+ggsave(filename="Figure5.png", plot=Figure5, device="png",height=10, width=9, units="in", dpi=1000, scaling = 1)
+```
+
+
+
+
